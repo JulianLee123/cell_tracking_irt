@@ -1,0 +1,40 @@
+radialAveraging(maxRadius,ctrX,ctrY,img):
+  create array radAvg w/ size maxRadius - 0
+  for every radius from 0 to maxRadius:
+    for y in range ctrY-r to ctrY+r #for every possible radius
+      calculate x-coordinate(s) based on the y-coord using center and radius (ctrX +/- sqrt(r*r-(y-ctrY)*(y-ctrY)))
+      look at value of the 1 or 2 point(s) in the img and add this to sum
+      for every point (there can be 1 or 2): numberOfPoints++
+    radAvg[radius] = sum / numberOfPoints;
+  return radAvg
+
+
+Get image --> img
+(resize img to optimal pixel count to save runtime)
+greyscale img --> img
+threshold img --> img2 #store result in img2 #img2 is the image to be processed unless said otherwise
+get external contours
+for each external contour:
+  if(contourArea > minArea)#if it is actually a contour and not noise, minArea is a constant
+    if(abs(minEnclosingCircleArea - contourArea) <  0.1*contourArea(contours[i])):#if contour is a circle (eg. one cell),0.1 margin of error
+      get center
+      crop image according to the minEnclosingCircleArea #still a rectangular crop
+      call radialAveraging #pass as parameters the maximum possible radius + center of the minEnclosingCircle and the GREYSCALED NON-THRESHOLDED image
+      find peaks, process to find z
+    else: #harder case where there are two cells' airy rings interfering
+      find minBoundingRect #use minAreaRect()
+      call getRotationMatrix2D and pass in center of rectangle and rotation
+      rotate image (warpAffine) #may need to rotate by 90° so rows < columns
+      crop #take bounding rect of the contour and use Mat(frame,rect) to crop
+      #at this point, we have a zoomed-in, correctly rotated rectangle
+      for each c from 0 to width of the image-1:
+	find contours + heirarchy
+        if there are any internal contours for the image with columns 0 to c:#at this point image has been somewhat convoluted
+          look at image from columns 0 to c - 5 #remove convoluted part
+          take contour with lowest x-value (the one closest to the left edge) as this will be the largest airy ring
+          use arc (take endpts and center) to extrapolate center and radius of the left cell
+          call radialAveraging #see line 22 for params
+          find peaks, process to find z
+          break
+      for each c from width of the image-1 to 0:
+        #repeat the same process above for the right cell, adding one column at a time to a new image that should have some right side portion of the original image
